@@ -20,6 +20,7 @@ Colorblind players??
 Difficulty: progress bar
 			new enemy: doesn't move much, shoots projectiles at player
 			IMPROVE new level generation system
+			Boss levels
 BUGS:
 */
 
@@ -208,7 +209,9 @@ var background = function(){
 							console.log('hit enemy with green');
 						}
 						else if(c.b>=255 && c.g <255 && c.r <255 && en[i3].tim==0){//if BLUE
-							if(en[i3].acc>0){en[i3].acc -=.05;} //slows enemy (acceleration)
+							// if(en[i3].acc>0){en[i3].acc -=.05;} //slows enemy (acceleration)
+							en[i3].xv /=3 //slows enemy (current velocity)
+							en[i3].yv /=3 //slows enemy (current velocity)
 							console.log('hit enemy with blue');
 						}
 						
@@ -277,7 +280,7 @@ var explode = function(a){with(a){ //creates particles from given object
 var enMove = function(){
 	for(var i=0;i<en.length;i++){with(en[i]){
 	if(hp == 0){c = co.b} //necessary? (red)
-	tim >= 100 ? tim = 0 : tim+=1;
+	c == co.en || tim >= 100 ? tim = 0 : tim+=1;
 	if(tim<50 && c!=co.en && hp>0){c=co.en} //flashes back to white except when dead
 	var a = fromAngle(r) //x,y coords of direction enemy is facing
 	//turn towards player
