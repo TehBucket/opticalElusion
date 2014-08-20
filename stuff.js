@@ -21,7 +21,6 @@ Difficulty: progress bar
 			new enemy: doesn't move much, shoots projectiles at player
 			IMPROVE new level generation system
 BUGS:
-particle streams don't go in the right direction at certain angles (enemy trails, disabled currently)
 */
 
 var C = document.getElementById('game');
@@ -66,7 +65,7 @@ var tri /*draws poly, rotated*/= function(x,y,s,a,c){
 }
 
 //classes and globals and stuff
-var co /*colors*/= {r3:{r:188,g:73,b:58},y3:{r:188,g:135,b:58},b3:{r:44,g:84,b:122},g3:{r:43,g:141,b:69},w:{r:255,g:255,b:255},}
+var co /*colors*/= {r3:{r:188,g:73,b:58},y3:{r:188,g:135,b:58},b3:{r:44,g:84,b:122},g3:{r:43,g:141,b:69},w:{r:255,g:255,b:255},b:{r:25,g:25,b:25},en:{r:225,g:225,b:225},}
 var p /*player*/= {x:300,y:250,el:co.r3,w:30,h:30,c:mix(co.r3,co.w,-.5),hp:8,st:0,r:0,s:15,sd:.1};
 var en /*enemies*/= [];
 var enN /*new enemy (constructor)*/= function(){ //random placement at edge of screen
@@ -86,17 +85,22 @@ var enN /*new enemy (constructor)*/= function(){ //random placement at edge of s
 	this.w =40; //width and height for colission mainly (i should .proto this)
 	this.h =40;
 	this.c = {r:225,g:225,b:225};
+	this.hp = 10; //health (when at 0, freezes)
+	this.acc = 1; //acceleration (affected by colour)
+	this.fric = 1; //friction (affected by colour)
+	this.tim = 0; //timer, for blinking
 };
-var lvl /*current level, difficulty and theme*/= {c:{r:0,g:0,b:0},n:0/*which level, increments*/,spawn:['s']/*spawn rate of enemies, fast, slow, ranged*/,score:0,goal:20};
+var lvl /*current level, difficulty and theme*/= {c:{r:0,g:0,b:0},n:0/*which level, increments*/,spawn:['s']/*spawn rate of enemies, fast, slow, ranged*/,score:0,goal:30,tim:0,pause:0};
 // colors: http://paletton.com/#uid=7050G0km8nBiOrDkyprnAlypujm (r1 is lightest red, r5 is darkest red. rgb is 0-255)
 var bg = [/*[{r,g,b}]*/]; //blocks of background that change colour dynamically (generated)
 var particles = []; //triangles that have velocitiy, and dissapate
 
-var newP = function(x,y,xv,yv,c){
+var newP = function(x,y,xv,yv,c){ //new particle, constructor
 	this.x=x+ran(-15,15);
 	this.y=y+ran(-15,15);
-	this.xv=xv+ran(-5,0);
-	this.yv=xv+ran(-5,0);
+	this.xv=xv+ran(-1,1);
+	if(xv==0){xv+=.1}
+	this.yv=xv+ran(-1,1);
 	this.r=ran(0,359);
 	this.c=c[ran(0,c.length-1)];
 	this.c.a=2;
@@ -138,7 +142,7 @@ var generateBG = function(){
 	for (var i = 0; i < 12; i++) {
 		bg.push([]);
 		for (var ii = 0; ii < 16; ii++) {
-			bg[bg.length - 1].push(new function () {
+			bg[bg.length - 1].push(new function () { //constructor for background box
 				this.c = {r:i + ii, g:i + ii, b:i + ii};
 				this.x = ii * 50;
 				this.y = i * 50;
@@ -159,6 +163,7 @@ var resetBG = function(){
 
 //fancy boxey dynamic background
 var background = function(){
+	var tmp = [];
 	for(var i=0;i<12;i++){//rows
 		for(var ii=0;ii<16;ii++){with(bg[i][ii]){
 			G.fillStyle = rgb(c);
@@ -172,21 +177,53 @@ var background = function(){
 				// p.c.b=255-(c.r+c.g+c.b)/3;
 				// p.c = oppo(c); //set player to visual opposite of background (broken)
 				// if(c.r<=500){c.r += 5}; //testification
-				if((c.r+c.b+c.g)/3<=500){c=mix(c,p.el,.1)}; //increment colour based on player
+				if((c.r+c.b+c.g)/3<=500){c=mix(c,p.el,.05)}; //increment colour based on player
 			}
 			// else if((c.r+c.b+c.g)/3>=i+ii){c=mix(c,co.w,-1/255)} //slowly blackens (broken)
 			// else if(c.r<=i+ii){c.r = i+ii} //r,g and b bottom out (broken)
 			// else if(c.g<=i+ii){c.g = i+ii}
 			// else if(c.b<=i+ii){c.b = i+ii}
-			// if(c.r>=255){particles.push(new newP(x,y,ran(-1,1),ran(-1,1)),[c])} // broken
-			
+			if(c.r>=255||c.b>=255||c.g>=255){//if bg-box is a full colour (has effect)
+				for(var i3=0;i3<en.length;i3++){//collide with enemy
+					if(col(en[i3],{x:x,y:y,w:w,h:h})){
+						if(en[i3].hp>0){en[i3].c = c;} //colours enemy, needs help (blink?)
+						if(c.r>=255&&c.b>=255&&c.g>=255){//if WHITE
+							if(en[i3].hp > 0){
+							// tmp.push(i3); //kills enemy
+							en[i3].c = co.b;
+							en[i3].hp = 0;
+							en[i3].acc = 0;
+							en[i3].fric = .98;
+							console.log('hit enemy with white');
+							for(var i4=0;i4<ran(16,22);i4++){particles.push(new newP(en[i3].x,en[i3].y,ran(-1,1),ran(-1,1),[{r:c.r,g:c.g,b:c.b}]))}
+							en.push(new enN);
+							}
+						}
+						else if(c.r>=255 && c.g <255 && c.b <255 && en[i3].tim==0){//if RED
+							en[i3].hp -= 1; //damages enemy
+							console.log('hit enemy with red');
+						}
+						else if(c.g>=255 && c.r <255 && c.b <255 && en[i3].tim==0){//if GREEN
+							if(en[i3].fric>0){en[i3].fric -= .01;} //slows enemy (friction)
+							console.log('hit enemy with green');
+						}
+						else if(c.b>=255 && c.g <255 && c.r <255 && en[i3].tim==0){//if BLUE
+							if(en[i3].acc>0){en[i3].acc -=.05;} //slows enemy (acceleration)
+							console.log('hit enemy with blue');
+						}
+						
+						// if(!ran(0,145)){particles.push(new newP(en[i3].x,en[i3].y,0,0,[{r:c.r,g:c.g,b:c.b}]))}
+					}
+				}
+
+			}
 			
 			c.r<=i+ii ? c.r = i+ii : c.r -= 1; //r,g and b bottom out
 			c.g<=i+ii ? c.g = i+ii : c.g -= 1;
 			c.b<=i+ii ? c.b = i+ii : c.b -= 1;
-			// c.r <=0 ? c.r=0 : c.r -= 1;
 		}}
 	}
+	return tmp;
 }
 
 //moves the player, and if by sides of screen, it scrolls scene
@@ -233,52 +270,56 @@ var newLvl = function(){with(lvl){
 }}
 
 var explode = function(a){with(a){ //creates particles from given object
-	for(var i=0;i<ran(6,12);i++){particles.push(new newP(x,y,xv,yv,[{r:225,g:225,b:225},{r:25,g:25,b:25},{r:172,g:60,b:45}]))}
+	for(var i=0;i<ran(6,12);i++){particles.push(new newP(x,y,yv*2,xv*2,[{r:225,g:225,b:225},{r:25,g:25,b:25},{r:172,g:60,b:45}]))}
 }}
 
 //moves, draws enemies (ai) ENEMY MOVE
 var enMove = function(){
 	for(var i=0;i<en.length;i++){with(en[i]){
+	if(hp == 0){c = co.b} //necessary? (red)
+	tim >= 100 ? tim = 0 : tim+=1;
+	if(tim<50 && c!=co.en && hp>0){c=co.en} //flashes back to white except when dead
 	var a = fromAngle(r) //x,y coords of direction enemy is facing
 	//turn towards player
 	var point = toAngle(x,y,p.x,p.y); //what angle would be looking directly at player
 	if(type=='s'){
-		if(point - 5 <= r && point + 5 >= r){ // is enemy pointing directly at player (give or take some)
-				xv += a.x/10; //add velocity in direction of player
-				yv += a.y/10;
+		if(point - 5 <= r && point + 5 >= r && hp > 0){ // is enemy pointing directly at player (give or take some)
+				xv += (a.x/10)*acc; //add velocity in direction of player
+				yv += (a.y/10)*acc;
 			}
-		else{//turn towards player
+		else if(hp>0){//turn towards player
 			r - point < 0 ? r += 1 : r -= 1;
 			r = loopA(r);
 			}
 		//draw Slow enemy (vector)
-		// if((Math.abs(xv)+Math.abs(yv))/2>2){particles.push(new newP(x,y,-xv,-yv,loopA(r-180),[{r:188,g:73,b:58}]))} //draws fire coming out of fast moving enemies
 		tri(x,y,45,fromAngle(point),{r:106,g:213,b:134,a:.2});//ghost pointer (green)
 		// c={r:255,g:142,b:127}
 		// tri(x,y,-40,{x:a.x/2,y:a.y/2},c);
 		tri(x,y,40,a,c);
-		tri(x,y,35,a,{r:25,g:25,b:25});
+		tri(x,y,35,a,co.b);
 		tri(x,y,30,a,c);
 		tri(x,y,25,a,{r:172,g:60,b:45});
-		tri(x,y,20,a,c);
+		tri(x,y,20,a,co.en);
 	}
 	else if(type=='f'){//fast ones
-		r = point;
-		xv += a.x/10;
-		yv += a.y/10;
+		if(hp>0){
+			r = point;
+			xv += a.x/10;
+			yv += a.y/10;
+		}
 		//draw Fast enemy (vector)
 		tri(x,y,50,a,{r:255,g:213,b:134,a:.2});//ghost pointer (green)
 		tri(x,y,40,a,c);
-		tri(x,y,30,a,{r:25,g:25,b:25});
+		tri(x,y,30,a,co.b);
 		tri(x,y,25,a,{r:125,g:125,b:125});
-		tri(x,y,20,a,{r:25,g:25,b:25});
-		tri(x,y,10,a,c);
+		tri(x,y,20,a,co.b);
+		tri(x,y,10,a,co.en);
 		tri(x,y,20,fromAngle(loopA(r-180)),{r:255,g:213,b:134,a:.2});//meh, flaggy thing, helps distinguish fast ones
 	}
 	x += xv; //move based on velocity
 	y += yv;
-	xv *= .99; //friction
-	yv *= .99;
+	xv *= .99*fric; //friction
+	yv *= .99*fric;
 	// if(a.x == 0 && p.x >= x - 40 && p.x <= x + 40){ y += 1 }
 	
 	//draw enemies (DEBUG boxes)
@@ -290,6 +331,8 @@ var enMove = function(){
 		// G.lineTo(x + a.x*30, y + a.y*30);
 		// G.lineWidth=3;
 		// G.stroke();
+		// if((Math.abs(xv)+Math.abs(yv))/2>2){particles.push(new newP(x,y,-yv,-xv,[{r:188,g:73,b:58}]))} //draws fire coming out of fast moving enemies
+
 	}}
 }
 //draws and a few other things, the Player
@@ -302,11 +345,11 @@ var drawP = function(){with(p){
 	G.fillStyle = rgb({r:c.r,g:c.g,b:c.b,a:.8}); //debug box colour (transparent)
 	// G.fillRect(x-15,y-15,30,30); //debug box
 	G.beginPath();
-	G.arc(x, y, s, 0, 2 * Math.PI, false); //debug sphere
+	G.arc(x, y, s, 0, s/5 * Math.PI, false); //sphere
 	G.fill();
 	G.fillStyle = rgb(co.w);
 	G.beginPath();
-	G.arc(x, y, s*11/15, 0, 2 * Math.PI, false); //debug sphere
+	G.arc(x, y, s*11/15, 0, s/5 * Math.PI, false); //inner sphere
 	G.fill();
 	s-= 5;
 	tri(x,y,s,fromAngle(r),p.el);
@@ -335,14 +378,14 @@ var drawP = function(){with(p){
 
 //Every Frame
 var update = function(){
+	// requestAnimationFrame(update); //nope
 	C.height = C.height;
-	background(); //paints background
-	drawP(); //draws player (and something)
+	var tmp = background(); //paints background, returns array of enemies touching bg colours
+	drawP(); //draws player
 	moveParticles();//manage particles
-	enMove();
+	enMove(); //moves-draw all enemies
 	if(ran(0,en.length*170)==0){en.push(new enN())} //spawns new enemy
 	//Collide with player, or enemy
-	var tmp = [];//temporary, holds enemies that will die
 	for(var i=0;i<en.length;i++){//col with enemies
 		for(var ii=i;ii<en.length;ii++){
 			if(col(en[i],en[ii])){
@@ -366,10 +409,11 @@ var update = function(){
 	for(var i=0;i<p.hp;i++){HUD.fillRect(i*100+20,(100-p.s*2)/2,60,p.s*2)} //draws HP bar 2
 	HUD.fillStyle = 'white';
 	for(var i=0;i<2;i++){HUD.fillRect(0,i*90,800*(lvl.score/lvl.goal),10);} //draws lvl completion bar
+	lvl.tim >= 100 ? lvl.tim = 0 : lvl.tim += 1; //general global timer for countdowns or whatever
 	if(lvl.score >= lvl.goal){newLvl()} //once you kill the required amount, go to next level
 }
 
-var frame=self.setInterval(update,1);
+
 
 //mouse input
 document.addEventListener('mousemove',function(e){
@@ -383,10 +427,14 @@ document.addEventListener('keydown', function(e){
 	if(e.keyCode==50){p.el=co.b3;p.c=mix(co.b3,co.w,-.5)} //blue, water 2
 	if(e.keyCode==51){p.el=co.y3;p.c=mix(co.y3,co.w,-.5)} //yellow, earth 3
 	if(e.keyCode==52){p.el=co.g3;p.c=mix(co.g3,co.w,-.5)} //green, air 4
-	// if(e.keyCode==32){frame=self.setInterval(update,0);} //pauses game (broken)
+	if(e.keyCode==32){lvl.pause ? frame=self.setInterval(update,1) : clearInterval(frame)} //pauses game
+	
 },false);
 
 // en.push(new enN) //testification
 // en.push(new enN) //testification
 
 generateBG();
+
+var frame=self.setInterval(update,1);
+// update();
