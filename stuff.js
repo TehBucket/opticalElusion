@@ -205,13 +205,13 @@ var background = function(){
 							console.log('hit enemy with red');
 						}
 						else if(c.g>=255 && c.r <255 && c.b <255 && en[i3].tim==0){//if GREEN
-							// if(en[i3].acc>0){en[i3].acc -=.05;} //slows enemy (acceleration)
-							en[i3].xv /=3 //slows enemy (current velocity)
-							en[i3].yv /=3 //slows enemy (current velocity)
+							if(en[i3].fric>0){en[i3].fric -= .01;} //slows enemy (friction)
 							console.log('hit enemy with green');
 						}
 						else if(c.b>=255 && c.g <255 && c.r <255 && en[i3].tim==0){//if BLUE
-							if(en[i3].fric>0){en[i3].fric -= .01;} //slows enemy (friction)
+							// if(en[i3].acc>0){en[i3].acc -=.05;} //slows enemy (acceleration)
+							en[i3].xv /=3 //slows enemy (current velocity)
+							en[i3].yv /=3 //slows enemy (current velocity)
 							console.log('hit enemy with blue');
 						}
 						
@@ -428,8 +428,8 @@ document.addEventListener('keydown', function(e){
 	//keys 1-4 change which element/colour (p.el) player trails
 	if(e.keyCode==49){p.el=co.r3;p.c=mix(co.r3,co.w,-.5)} //red, fire, 1
 	if(e.keyCode==50){p.el=co.b3;p.c=mix(co.b3,co.w,-.5)} //blue, water 2
-	// if(e.keyCode==51){p.el=co.y3;p.c=mix(co.y3,co.w,-.5)} //yellow, earth 3
-	if(e.keyCode==51){p.el=co.g3;p.c=mix(co.g3,co.w,-.5)} //green, air 4
+	if(e.keyCode==51){p.el=co.y3;p.c=mix(co.y3,co.w,-.5)} //yellow, earth 3
+	if(e.keyCode==52){p.el=co.g3;p.c=mix(co.g3,co.w,-.5)} //green, air 4
 	if(e.keyCode==32){lvl.pause ? frame=self.setInterval(update,1) : clearInterval(frame)} //pauses game
 	
 },false);
